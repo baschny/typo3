@@ -189,12 +189,24 @@ class FrontendConfigurationManager extends AbstractConfigurationManager
                 $flexFormConfiguration = [];
             }
         }
-        if (is_array($flexFormConfiguration) && !empty($flexFormConfiguration)) {
-            $frameworkConfiguration = $this->mergeConfigurationIntoFrameworkConfiguration($frameworkConfiguration, $flexFormConfiguration, 'settings');
-            $frameworkConfiguration = $this->mergeConfigurationIntoFrameworkConfiguration($frameworkConfiguration, $flexFormConfiguration, 'persistence');
-            $frameworkConfiguration = $this->mergeConfigurationIntoFrameworkConfiguration($frameworkConfiguration, $flexFormConfiguration, 'view');
-            $frameworkConfiguration = $this->overrideControllerConfigurationWithSwitchableControllerActionsFromFlexForm($frameworkConfiguration, $flexFormConfiguration);
+
+        // Early return, if flexForm configuration is empty
+        if (!is_array($flexFormConfiguration) || empty($flexFormConfiguration)) {
+            return $frameworkConfiguration;
         }
+
+        // Remove flexForm settings if empty for fields defined in `ignoreFlexFormSettingsIfEmpty`
+        $ignoredSettingsConfig = (string)($frameworkConfiguration['ignoreFlexFormSettingsIfEmpty'] ?? '');
+        if ($ignoredSettingsConfig !== '') {
+            $ignoredSettings = GeneralUtility::trimExplode(',', $ignoredSettingsConfig, true);
+            $flexFormConfiguration = $this->removeIgnoredFlexFormSettingsIfEmpty($flexFormConfiguration, $ignoredSettings);
+        }
+
+        $frameworkConfiguration = $this->mergeConfigurationIntoFrameworkConfiguration($frameworkConfiguration, $flexFormConfiguration, 'settings');
+        $frameworkConfiguration = $this->mergeConfigurationIntoFrameworkConfiguration($frameworkConfiguration, $flexFormConfiguration, 'persistence');
+        $frameworkConfiguration = $this->mergeConfigurationIntoFrameworkConfiguration($frameworkConfiguration, $flexFormConfiguration, 'view');
+        $frameworkConfiguration = $this->overrideControllerConfigurationWithSwitchableControllerActionsFromFlexForm($frameworkConfiguration, $flexFormConfiguration);
+
         return $frameworkConfiguration;
     }
 
@@ -273,5 +285,22 @@ class FrontendConfigurationManager extends AbstractConfigurationManager
             }
         }
         return array_unique($recursiveStoragePids);
+    }
+
+    protected function removeIgnoredFlexFormSettingsIfEmpty(array $flexFormConfiguration, array $ignoredSettings): array
+    {
+        foreach ($ignoredSettings as $ignoredSetting) {
+            $ignoredSettingName = 'settings.' . $ignoredSetting;
+            if (!ArrayUtility::isValidPath($flexFormConfiguration, $ignoredSettingName, '.')) {
+                continue;
+            }
+
+            $fieldValue = ArrayUtility::getValueByPath($flexFormConfiguration, $ignoredSettingName, '.');
+            if ($fieldValue === '' || $fieldValue === '0') {
+                $flexFormConfiguration = ArrayUtility::removeByPath($flexFormConfiguration, $ignoredSettingName, '.');
+            }
+        }
+
+        return $flexFormConfiguration;
     }
 }
