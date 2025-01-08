@@ -584,10 +584,24 @@ class InlineRecordContainer extends AbstractContainer
                         </a>';
                 }
             }
+
             // "Delete" link:
+
+            // Use the same security checks like above used to check the access to edit the file
+            $isWriteableSysFileReferenceInSysFileTable = false;
+            if ($rec['table_local'] === 'sys_file' && $rec ['pid'] === 0) {
+                if ($backendUser->check('tables_modify', 'sys_file_metadata')) {
+                    $isWriteableSysFileReferenceInSysFileTable = true;
+                }
+            }
+
             if ($enabledControls['delete'] && (($isPagesTable && $localCalcPerms->deletePagePermissionIsGranted())
                     || (!$isPagesTable && $calcPerms->editContentPermissionIsGranted())
-                    || ($isSysFileReferenceTable && $calcPerms->editPagePermissionIsGranted()))
+                    || ($isSysFileReferenceTable  && (
+                        ($calcPerms->editPagePermissionIsGranted()))
+                        || $isWriteableSysFileReferenceInSysFileTable
+                    )
+                )
             ) {
                 $title = htmlspecialchars($languageService->sL('LLL:EXT:core/Resources/Private/Language/locallang_mod_web_list.xlf:delete'));
                 $icon = $this->iconFactory->getIcon('actions-edit-delete', Icon::SIZE_SMALL)->render();
