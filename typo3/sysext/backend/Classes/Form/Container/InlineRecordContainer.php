@@ -469,8 +469,15 @@ class InlineRecordContainer extends AbstractContainer
         if ($isPagesTable) {
             $localCalcPerms = new Permission($backendUser->calcPerms(BackendUtility::getRecord('pages', $rec['uid'])));
         }
+        // Exception to the edit rules, allow editing of sys_file_reference records if the user has edit permissions
+        $isWriteableSysFileReferenceInSysFileTable = false;
+        if ($rec['table_local'] === 'sys_file' && $rec ['pid'] === 0) {
+            if ($backendUser->check('tables_modify', 'sys_file_metadata')) {
+                $isWriteableSysFileReferenceInSysFileTable = true;
+            }
+        }
         // This expresses the edit permissions for this particular element:
-        $permsEdit = ($isPagesTable && $localCalcPerms->editPagePermissionIsGranted()) || (!$isPagesTable && $calcPerms->editContentPermissionIsGranted());
+        $permsEdit = ($isPagesTable && $localCalcPerms->editPagePermissionIsGranted()) || (!$isPagesTable && ($calcPerms->editContentPermissionIsGranted() || $isWriteableSysFileReferenceInSysFileTable));
         // Controls: Defines which controls should be shown
         $enabledControls = $inlineConfig['appearance']['enabledControls'];
         // Hook: Can disable/enable single controls for specific child records:
@@ -586,15 +593,6 @@ class InlineRecordContainer extends AbstractContainer
             }
 
             // "Delete" link:
-
-            // Use the same security checks like above used to check the access to edit the file
-            $isWriteableSysFileReferenceInSysFileTable = false;
-            if ($rec['table_local'] === 'sys_file' && $rec ['pid'] === 0) {
-                if ($backendUser->check('tables_modify', 'sys_file_metadata')) {
-                    $isWriteableSysFileReferenceInSysFileTable = true;
-                }
-            }
-
             if ($enabledControls['delete'] && (($isPagesTable && $localCalcPerms->deletePagePermissionIsGranted())
                     || (!$isPagesTable && $calcPerms->editContentPermissionIsGranted())
                     || ($isSysFileReferenceTable  && (
